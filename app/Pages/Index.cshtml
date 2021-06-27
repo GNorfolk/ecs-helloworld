@@ -1,0 +1,11 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+    ViewData["my_env_var"] = Environment.GetEnvironmentVariable("MY_ENV_VAR");
+}
+
+<div class="text-center">
+    <h1 class="display-4">Hello World!</h1>
+    <p>My environment variable is: @ViewData["my_env_var"]</p>
+</div>
