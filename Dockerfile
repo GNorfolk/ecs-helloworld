@@ -23,3 +23,6 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "HelloWorld.dll"]
+
+# example docker run after container is built
+# docker container run --publish 8080:80 --detach --name hello-container helloworld:1.0
