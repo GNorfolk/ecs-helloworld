@@ -11,7 +11,8 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: ContainerSecurityGroup
-      GroupDescription: Security group for NGINX container
+      GroupDescription: Security group for ecs-helloworld
+      VpcId: vpc-0185130416ae714e3
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -24,7 +25,7 @@ Resources:
       Cpu: 256
       Memory: 512
       NetworkMode: awsvpc
-      ExecutionRoleArn: arn:aws:iam::103348857345:role/ecsInstanceRole
+      ExecutionRoleArn: arn:aws:iam::103348857345:role/ecsServiceRole
       ContainerDefinitions:
         - Name: ecs-helloworld
           Image: 103348857345.dkr.ecr.eu-west-1.amazonaws.com/ecs-helloworld:latest
@@ -42,8 +43,40 @@ Resources:
       LaunchType: EC2
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
-          # Subnets:
-          #   - !Ref SubnetID
+          AssignPublicIp: DISABLED
+          Subnets:
+            - subnet-09a1f8905f250f119
+            - subnet-02d87565e54bb57a1
           SecurityGroups:
             - !GetAtt ContainerSecurityGroup.GroupId
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - subnet-09a1f8905f250f119
+        - subnet-02d87565e54bb57a1
+      LaunchConfigurationName: !Ref 'ContainerInstances'
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: true
+  ContainerInstances:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-071a319a752b45fe7
+      SecurityGroups: 
+        - !GetAtt ContainerSecurityGroup.GroupId
+      InstanceType: t3.small
+      IamInstanceProfile: arn:aws:iam::103348857345:instance-profile/ecsInstanceRole
+      KeyName: ecs
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+          yum install -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource ECSAutoScalingGroup --region ${AWS::Region}
